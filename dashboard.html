@@ -1,0 +1,920 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>แดชบอร์ด</title>
+  <style>
+    body {
+      font-family: 'Kanit', sans-serif;
+      background: linear-gradient(#a2d2ff, #bde0fe);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+    }
+    h2 {
+      color: #0077b6;
+    }
+    p {
+      font-size: 18px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px 5px;
+      background-color: #00b4d8;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #0096c7;
+    }
+  </style>
+
+<style>
+#popup {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: #ffe082;
+  padding: 15px 20px;
+  border-radius: 10px;
+  box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+  z-index: 9999;
+  display: none;
+}
+#notif-badge {
+  background: red;
+  color: white;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 50%;
+  position: relative;
+  top: -10px;
+  left: 5px;
+}
+</style>
+<div id="popup"></div>
+</head>
+<body>
+  <div class="card">
+    <h2>แดชบอร์ดผู้ใช้</h2>
+    <p><strong>ชื่อ:</strong> <span id="displayName">กำลังโหลด...</span></p>
+    <p><strong>อีเมล:</strong> <span id="email">-</span></p>
+    <p><strong>UID:</strong> <span id="uid">-</span></p>
+
+    <hr>
+    <h3>แก้ไขโปรไฟล์</h3>
+<input type='file' id='profile-pic'><button onclick='uploadImage()'>อัปโหลดรูป</button><br><img id='profile-img' src='' style='max-width: 150px; margin-top: 10px; border-radius: 50%;'>
+    <input type="text" id="edit-name" placeholder="ชื่อใหม่">
+    <input type="text" id="edit-phone" placeholder="เบอร์โทร">
+    <button onclick="updateProfile()">บันทึกโปรไฟล์</button>
+
+    <hr>
+    <h3>เปลี่ยนรหัสผ่าน</h3>
+<input type='file' id='profile-pic'><button onclick='uploadImage()'>อัปโหลดรูป</button><br><img id='profile-img' src='' style='max-width: 150px; margin-top: 10px; border-radius: 50%;'>
+    <input type="password" id="new-password" placeholder="รหัสผ่านใหม่">
+    <button onclick="changePassword()">เปลี่ยนรหัสผ่าน</button>
+
+    <hr>
+    <button onclick="logout()">ออกจากระบบ</button>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js">
+    function uploadImage() {
+      const file = document.getElementById('profile-pic').files[0];
+      const user = auth.currentUser;
+
+      if (file && user) {
+        const storageRef = firebase.storage().ref();
+        const uploadTask = storageRef.child("profile_pics/" + user.uid).put(file);
+
+        uploadTask.then(snapshot => snapshot.ref.getDownloadURL())
+          .then(url => {
+            document.getElementById("profile-img").src = url;
+            user.updateProfile({ photoURL: url });
+            db.collection("users").doc(user.uid).set({ photoURL: url }, { merge: true });
+            alert("อัปโหลดรูปสำเร็จ");
+          })
+          .catch(err => alert("เกิดข้อผิดพลาดในการอัปโหลด: " + err.message));
+      }
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+      const dbRT = firebase.database();
+
+      dbRT.ref("users/" + user.uid).set({
+        email: user.email,
+        name: user.displayName || null,
+        status: "online",
+        lastLogin: new Date().toISOString()
+      });
+
+        document.getElementById("displayName").innerText = user.displayName || "-";
+        document.getElementById("email").innerText = user.email;
+        document.getElementById("uid").innerText = user.uid;
+        if (user.photoURL) {
+          document.getElementById("profile-img").src = user.photoURL;
+        }
+
+        db.collection("users").doc(user.uid).get().then(doc => {
+          if (doc.exists) {
+            const data = doc.data();
+            document.getElementById("edit-name").value = data.name || "";
+            document.getElementById("edit-phone").value = data.phone || "";
+            if (data.photoURL) {
+              document.getElementById("profile-img").src = data.photoURL;
+            }
+          }
+        });
+      } else {
+        window.location.href = "index.html";
+      }
+    });
+  
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js">
+function showPopup(message) {
+  const popup = document.getElementById("popup");
+  popup.innerText = message;
+  popup.style.display = "block";
+  setTimeout(() => {
+    popup.style.display = "none";
+  }, 4000);
+}
+
+let badgeCount = 0;
+function updateBadgeCount() {
+  badgeCount++;
+  let badge = document.getElementById("notif-badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.id = "notif-badge";
+    document.querySelector("h3:nth-of-type(2)").appendChild(badge);
+  }
+  badge.innerText = badgeCount;
+}
+</script>
+<script>
+  const dbRT = firebase.database();
+  let currentRoom = 'global'; let chatRef = dbRT.ref('chats/' + currentRoom + '/messages');
+  const notifRef = dbRT.ref("notifications");
+
+  
+function switchRoom() {
+  const room = document.getElementById("room-select").value;
+  currentRoom = room;
+  chatRef = dbRT.ref("chats/" + currentRoom + "/messages");
+  document.getElementById("chat-box").innerHTML = "";
+  listenForMessages();
+}
+
+function createRoom() {
+  const room = document.getElementById("new-room-name").value.trim();
+  if (room) {
+    const option = document.createElement("option");
+    option.value = room;
+    option.textContent = "💬 " + room;
+    document.getElementById("room-select").appendChild(option);
+    document.getElementById("room-select").value = room;
+    switchRoom();
+    alert("สร้างห้อง " + room + " สำเร็จ");
+    document.getElementById("new-room-name").value = "";
+  }
+}
+
+function sendMessage() {
+    const user = auth.currentUser;
+    const msg = document.getElementById("chat-input").value.trim();
+    if (user && msg) {
+      chatRef.push({
+        uid: user.uid,
+        name: user.displayName || "ไม่ระบุ",
+        message: msg,
+        timestamp: Date.now()
+      });
+      notifRef.child(user.uid).push({
+        message: "คุณส่งข้อความ: " + msg,
+        time: new Date().toLocaleString()
+      });
+      document.getElementById("chat-input").value = "";
+    }
+  }
+
+  function listenForMessages() {
+    chatRef.limitToLast(50).on("child_added", (snapshot) => {
+      const data = snapshot.val();
+      const box = document.getElementById("chat-box");
+      const msg = document.createElement("div");
+      msg.textContent = `[${data.name}] ${data.message}`;
+      box.appendChild(msg);
+      box.scrollTop = box.scrollHeight;
+    });
+  }
+
+  function loadNotifications() {
+    const user = auth.currentUser;
+    if (user) {
+      notifRef.child(user.uid).limitToLast(10).on("child_added", snap => {
+        const data = snap.val();
+        const li = document.createElement("li");
+        li.textContent = `${data.message} (${data.time})`;
+        document.getElementById("notification-list").appendChild(li);
+showPopup(data.message);
+updateBadgeCount();
+      });
+    }
+  }
+
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      listenForMessages();
+      loadNotifications();
+    }
+  });
+
+function showPopup(message) {
+  const popup = document.getElementById("popup");
+  popup.innerText = message;
+  popup.style.display = "block";
+  setTimeout(() => {
+    popup.style.display = "none";
+  }, 4000);
+}
+
+let badgeCount = 0;
+function updateBadgeCount() {
+  badgeCount++;
+  let badge = document.getElementById("notif-badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.id = "notif-badge";
+    document.querySelector("h3:nth-of-type(2)").appendChild(badge);
+  }
+  badge.innerText = badgeCount;
+}
+</script>
+</html>
+
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js">
+    function uploadImage() {
+      const file = document.getElementById('profile-pic').files[0];
+      const user = auth.currentUser;
+
+      if (file && user) {
+        const storageRef = firebase.storage().ref();
+        const uploadTask = storageRef.child("profile_pics/" + user.uid).put(file);
+
+        uploadTask.then(snapshot => snapshot.ref.getDownloadURL())
+          .then(url => {
+            document.getElementById("profile-img").src = url;
+            user.updateProfile({ photoURL: url });
+            db.collection("users").doc(user.uid).set({ photoURL: url }, { merge: true });
+            alert("อัปโหลดรูปสำเร็จ");
+          })
+          .catch(err => alert("เกิดข้อผิดพลาดในการอัปโหลด: " + err.message));
+      }
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+      const dbRT = firebase.database();
+
+      dbRT.ref("users/" + user.uid).set({
+        email: user.email,
+        name: user.displayName || null,
+        status: "online",
+        lastLogin: new Date().toISOString()
+      });
+
+        document.getElementById("displayName").innerText = user.displayName || "-";
+        document.getElementById("email").innerText = user.email;
+        document.getElementById("uid").innerText = user.uid;
+        if (user.photoURL) {
+          document.getElementById("profile-img").src = user.photoURL;
+        }
+
+        db.collection("users").doc(user.uid).get().then(doc => {
+          if (doc.exists) {
+            const data = doc.data();
+            document.getElementById("edit-name").value = data.name || "";
+            document.getElementById("edit-phone").value = data.phone || "";
+            if (data.photoURL) {
+              document.getElementById("profile-img").src = data.photoURL;
+            }
+          }
+        });
+      } else {
+        window.location.href = "index.html";
+      }
+    });
+  
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js">
+function showPopup(message) {
+  const popup = document.getElementById("popup");
+  popup.innerText = message;
+  popup.style.display = "block";
+  setTimeout(() => {
+    popup.style.display = "none";
+  }, 4000);
+}
+
+let badgeCount = 0;
+function updateBadgeCount() {
+  badgeCount++;
+  let badge = document.getElementById("notif-badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.id = "notif-badge";
+    document.querySelector("h3:nth-of-type(2)").appendChild(badge);
+  }
+  badge.innerText = badgeCount;
+}
+</script>
+<script>
+  const dbRT = firebase.database();
+  let currentRoom = 'global'; let chatRef = dbRT.ref('chats/' + currentRoom + '/messages');
+  const notifRef = dbRT.ref("notifications");
+
+  
+function switchRoom() {
+  const room = document.getElementById("room-select").value;
+  currentRoom = room;
+  chatRef = dbRT.ref("chats/" + currentRoom + "/messages");
+  document.getElementById("chat-box").innerHTML = "";
+  listenForMessages();
+}
+
+function createRoom() {
+  const room = document.getElementById("new-room-name").value.trim();
+  if (room) {
+    const option = document.createElement("option");
+    option.value = room;
+    option.textContent = "💬 " + room;
+    document.getElementById("room-select").appendChild(option);
+    document.getElementById("room-select").value = room;
+    switchRoom();
+    alert("สร้างห้อง " + room + " สำเร็จ");
+    document.getElementById("new-room-name").value = "";
+  }
+}
+
+function sendMessage() {
+    const user = auth.currentUser;
+    const msg = document.getElementById("chat-input").value.trim();
+    if (user && msg) {
+      chatRef.push({
+        uid: user.uid,
+        name: user.displayName || "ไม่ระบุ",
+        message: msg,
+        timestamp: Date.now()
+      });
+      notifRef.child(user.uid).push({
+        message: "คุณส่งข้อความ: " + msg,
+        time: new Date().toLocaleString()
+      });
+      document.getElementById("chat-input").value = "";
+    }
+  }
+
+  function listenForMessages() {
+    chatRef.limitToLast(50).on("child_added", (snapshot) => {
+      const data = snapshot.val();
+      const box = document.getElementById("chat-box");
+      const msg = document.createElement("div");
+      msg.textContent = `[${data.name}] ${data.message}`;
+      box.appendChild(msg);
+      box.scrollTop = box.scrollHeight;
+    });
+  }
+
+  function loadNotifications() {
+    const user = auth.currentUser;
+    if (user) {
+      notifRef.child(user.uid).limitToLast(10).on("child_added", snap => {
+        const data = snap.val();
+        const li = document.createElement("li");
+        li.textContent = `${data.message} (${data.time})`;
+        document.getElementById("notification-list").appendChild(li);
+showPopup(data.message);
+updateBadgeCount();
+      });
+    }
+  }
+
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      listenForMessages();
+      loadNotifications();
+    }
+  });
+
+function showPopup(message) {
+  const popup = document.getElementById("popup");
+  popup.innerText = message;
+  popup.style.display = "block";
+  setTimeout(() => {
+    popup.style.display = "none";
+  }, 4000);
+}
+
+let badgeCount = 0;
+function updateBadgeCount() {
+  badgeCount++;
+  let badge = document.getElementById("notif-badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.id = "notif-badge";
+    document.querySelector("h3:nth-of-type(2)").appendChild(badge);
+  }
+  badge.innerText = badgeCount;
+}
+</script>
+</html>
+
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js">
+    function uploadImage() {
+      const file = document.getElementById('profile-pic').files[0];
+      const user = auth.currentUser;
+
+      if (file && user) {
+        const storageRef = firebase.storage().ref();
+        const uploadTask = storageRef.child("profile_pics/" + user.uid).put(file);
+
+        uploadTask.then(snapshot => snapshot.ref.getDownloadURL())
+          .then(url => {
+            document.getElementById("profile-img").src = url;
+            user.updateProfile({ photoURL: url });
+            db.collection("users").doc(user.uid).set({ photoURL: url }, { merge: true });
+            alert("อัปโหลดรูปสำเร็จ");
+          })
+          .catch(err => alert("เกิดข้อผิดพลาดในการอัปโหลด: " + err.message));
+      }
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+      const dbRT = firebase.database();
+
+      dbRT.ref("users/" + user.uid).set({
+        email: user.email,
+        name: user.displayName || null,
+        status: "online",
+        lastLogin: new Date().toISOString()
+      });
+
+        document.getElementById("displayName").innerText = user.displayName || "-";
+        document.getElementById("email").innerText = user.email;
+        document.getElementById("uid").innerText = user.uid;
+        if (user.photoURL) {
+          document.getElementById("profile-img").src = user.photoURL;
+        }
+
+        db.collection("users").doc(user.uid).get().then(doc => {
+          if (doc.exists) {
+            const data = doc.data();
+            document.getElementById("edit-name").value = data.name || "";
+            document.getElementById("edit-phone").value = data.phone || "";
+            if (data.photoURL) {
+              document.getElementById("profile-img").src = data.photoURL;
+            }
+          }
+        });
+      } else {
+        window.location.href = "index.html";
+      }
+    });
+  
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js">
+function showPopup(message) {
+  const popup = document.getElementById("popup");
+  popup.innerText = message;
+  popup.style.display = "block";
+  setTimeout(() => {
+    popup.style.display = "none";
+  }, 4000);
+}
+
+let badgeCount = 0;
+function updateBadgeCount() {
+  badgeCount++;
+  let badge = document.getElementById("notif-badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.id = "notif-badge";
+    document.querySelector("h3:nth-of-type(2)").appendChild(badge);
+  }
+  badge.innerText = badgeCount;
+}
+</script>
+<script>
+  const dbRT = firebase.database();
+  let currentRoom = 'global'; let chatRef = dbRT.ref('chats/' + currentRoom + '/messages');
+  const notifRef = dbRT.ref("notifications");
+
+  
+function switchRoom() {
+  const room = document.getElementById("room-select").value;
+  currentRoom = room;
+  chatRef = dbRT.ref("chats/" + currentRoom + "/messages");
+  document.getElementById("chat-box").innerHTML = "";
+  listenForMessages();
+}
+
+function createRoom() {
+  const room = document.getElementById("new-room-name").value.trim();
+  if (room) {
+    const option = document.createElement("option");
+    option.value = room;
+    option.textContent = "💬 " + room;
+    document.getElementById("room-select").appendChild(option);
+    document.getElementById("room-select").value = room;
+    switchRoom();
+    alert("สร้างห้อง " + room + " สำเร็จ");
+    document.getElementById("new-room-name").value = "";
+  }
+}
+
+function sendMessage() {
+    const user = auth.currentUser;
+    const msg = document.getElementById("chat-input").value.trim();
+    if (user && msg) {
+      chatRef.push({
+        uid: user.uid,
+        name: user.displayName || "ไม่ระบุ",
+        message: msg,
+        timestamp: Date.now()
+      });
+      notifRef.child(user.uid).push({
+        message: "คุณส่งข้อความ: " + msg,
+        time: new Date().toLocaleString()
+      });
+      document.getElementById("chat-input").value = "";
+    }
+  }
+
+  function listenForMessages() {
+    chatRef.limitToLast(50).on("child_added", (snapshot) => {
+      const data = snapshot.val();
+      const box = document.getElementById("chat-box");
+      const msg = document.createElement("div");
+      msg.textContent = `[${data.name}] ${data.message}`;
+      box.appendChild(msg);
+      box.scrollTop = box.scrollHeight;
+    });
+  }
+
+  function loadNotifications() {
+    const user = auth.currentUser;
+    if (user) {
+      notifRef.child(user.uid).limitToLast(10).on("child_added", snap => {
+        const data = snap.val();
+        const li = document.createElement("li");
+        li.textContent = `${data.message} (${data.time})`;
+        document.getElementById("notification-list").appendChild(li);
+showPopup(data.message);
+updateBadgeCount();
+      });
+    }
+  }
+
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      listenForMessages();
+      loadNotifications();
+    }
+  });
+
+function showPopup(message) {
+  const popup = document.getElementById("popup");
+  popup.innerText = message;
+  popup.style.display = "block";
+  setTimeout(() => {
+    popup.style.display = "none";
+  }, 4000);
+}
+
+let badgeCount = 0;
+function updateBadgeCount() {
+  badgeCount++;
+  let badge = document.getElementById("notif-badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.id = "notif-badge";
+    document.querySelector("h3:nth-of-type(2)").appendChild(badge);
+  }
+  badge.innerText = badgeCount;
+}
+</script>
+</html>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDPOJVghUoEjPvwnik6KwjO47kAzrasRnc",
+      authDomain: "money542.firebaseapp.com",
+      projectId: "money542",
+      storageBucket: "money542.firebasestorage.app",
+      messagingSenderId: "503884657875",
+      appId: "1:503884657875:web:afc355b0a49d4b3b4f1026",
+      measurementId: "G-C32EKBEGGL"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+      const dbRT = firebase.database();
+
+      dbRT.ref("users/" + user.uid).set({
+        email: user.email,
+        name: user.displayName || null,
+        status: "online",
+        lastLogin: new Date().toISOString()
+      });
+
+        document.getElementById("displayName").innerText = user.displayName || "-";
+        document.getElementById("email").innerText = user.email;
+        document.getElementById("uid").innerText = user.uid;
+
+        db.collection("users").doc(user.uid).get().then(doc => {
+          if (doc.exists) {
+            const data = doc.data();
+            document.getElementById("edit-name").value = data.name || "";
+            document.getElementById("edit-phone").value = data.phone || "";
+          }
+        });
+      } else {
+        window.location.href = "index.html";
+      }
+    });
+
+    function updateProfile() {
+      const name = document.getElementById("edit-name").value.trim();
+      const phone = document.getElementById("edit-phone").value.trim();
+      const user = auth.currentUser;
+
+      if (user) {
+      const dbRT = firebase.database();
+
+      dbRT.ref("users/" + user.uid).set({
+        email: user.email,
+        name: user.displayName || null,
+        status: "online",
+        lastLogin: new Date().toISOString()
+      });
+
+        user.updateProfile({ displayName: name }).then(() => {
+          document.getElementById("displayName").innerText = name;
+        });
+
+        db.collection("users").doc(user.uid).set({ name, phone }, { merge: true })
+          .then(() => alert("อัปเดตโปรไฟล์แล้ว"));
+      }
+    }
+
+    function changePassword() {
+      const newPassword = document.getElementById("new-password").value.trim();
+      const user = auth.currentUser;
+
+      if (user && newPassword.length >= 6) {
+        user.updatePassword(newPassword).then(() => {
+          alert("เปลี่ยนรหัสผ่านสำเร็จ");
+          document.getElementById("new-password").value = "";
+        }).catch(err => alert("เปลี่ยนรหัสผ่านล้มเหลว: " + err.message));
+      } else {
+        alert("กรุณากรอกรหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)");
+      }
+    }
+
+    function logout() {
+      auth.signOut().then(() => {
+        window.location.href = "index.html";
+      });
+    }
+  
+    function uploadImage() {
+      const file = document.getElementById('profile-pic').files[0];
+      const user = auth.currentUser;
+
+      if (file && user) {
+        const storageRef = firebase.storage().ref();
+        const uploadTask = storageRef.child("profile_pics/" + user.uid).put(file);
+
+        uploadTask.then(snapshot => snapshot.ref.getDownloadURL())
+          .then(url => {
+            document.getElementById("profile-img").src = url;
+            user.updateProfile({ photoURL: url });
+            db.collection("users").doc(user.uid).set({ photoURL: url }, { merge: true });
+            alert("อัปโหลดรูปสำเร็จ");
+          })
+          .catch(err => alert("เกิดข้อผิดพลาดในการอัปโหลด: " + err.message));
+      }
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+      const dbRT = firebase.database();
+
+      dbRT.ref("users/" + user.uid).set({
+        email: user.email,
+        name: user.displayName || null,
+        status: "online",
+        lastLogin: new Date().toISOString()
+      });
+
+        document.getElementById("displayName").innerText = user.displayName || "-";
+        document.getElementById("email").innerText = user.email;
+        document.getElementById("uid").innerText = user.uid;
+        if (user.photoURL) {
+          document.getElementById("profile-img").src = user.photoURL;
+        }
+
+        db.collection("users").doc(user.uid).get().then(doc => {
+          if (doc.exists) {
+            const data = doc.data();
+            document.getElementById("edit-name").value = data.name || "";
+            document.getElementById("edit-phone").value = data.phone || "";
+            if (data.photoURL) {
+              document.getElementById("profile-img").src = data.photoURL;
+            }
+          }
+        });
+      } else {
+        window.location.href = "index.html";
+      }
+    });
+  
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js">
+function showPopup(message) {
+  const popup = document.getElementById("popup");
+  popup.innerText = message;
+  popup.style.display = "block";
+  setTimeout(() => {
+    popup.style.display = "none";
+  }, 4000);
+}
+
+let badgeCount = 0;
+function updateBadgeCount() {
+  badgeCount++;
+  let badge = document.getElementById("notif-badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.id = "notif-badge";
+    document.querySelector("h3:nth-of-type(2)").appendChild(badge);
+  }
+  badge.innerText = badgeCount;
+}
+</script>
+<script>
+  const dbRT = firebase.database();
+  let currentRoom = 'global'; let chatRef = dbRT.ref('chats/' + currentRoom + '/messages');
+  const notifRef = dbRT.ref("notifications");
+
+  
+function switchRoom() {
+  const room = document.getElementById("room-select").value;
+  currentRoom = room;
+  chatRef = dbRT.ref("chats/" + currentRoom + "/messages");
+  document.getElementById("chat-box").innerHTML = "";
+  listenForMessages();
+}
+
+function createRoom() {
+  const room = document.getElementById("new-room-name").value.trim();
+  if (room) {
+    const option = document.createElement("option");
+    option.value = room;
+    option.textContent = "💬 " + room;
+    document.getElementById("room-select").appendChild(option);
+    document.getElementById("room-select").value = room;
+    switchRoom();
+    alert("สร้างห้อง " + room + " สำเร็จ");
+    document.getElementById("new-room-name").value = "";
+  }
+}
+
+function sendMessage() {
+    const user = auth.currentUser;
+    const msg = document.getElementById("chat-input").value.trim();
+    if (user && msg) {
+      chatRef.push({
+        uid: user.uid,
+        name: user.displayName || "ไม่ระบุ",
+        message: msg,
+        timestamp: Date.now()
+      });
+      notifRef.child(user.uid).push({
+        message: "คุณส่งข้อความ: " + msg,
+        time: new Date().toLocaleString()
+      });
+      document.getElementById("chat-input").value = "";
+    }
+  }
+
+  function listenForMessages() {
+    chatRef.limitToLast(50).on("child_added", (snapshot) => {
+      const data = snapshot.val();
+      const box = document.getElementById("chat-box");
+      const msg = document.createElement("div");
+      msg.textContent = `[${data.name}] ${data.message}`;
+      box.appendChild(msg);
+      box.scrollTop = box.scrollHeight;
+    });
+  }
+
+  function loadNotifications() {
+    const user = auth.currentUser;
+    if (user) {
+      notifRef.child(user.uid).limitToLast(10).on("child_added", snap => {
+        const data = snap.val();
+        const li = document.createElement("li");
+        li.textContent = `${data.message} (${data.time})`;
+        document.getElementById("notification-list").appendChild(li);
+showPopup(data.message);
+updateBadgeCount();
+      });
+    }
+  }
+
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      listenForMessages();
+      loadNotifications();
+    }
+  });
+
+function showPopup(message) {
+  const popup = document.getElementById("popup");
+  popup.innerText = message;
+  popup.style.display = "block";
+  setTimeout(() => {
+    popup.style.display = "none";
+  }, 4000);
+}
+
+let badgeCount = 0;
+function updateBadgeCount() {
+  badgeCount++;
+  let badge = document.getElementById("notif-badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.id = "notif-badge";
+    document.querySelector("h3:nth-of-type(2)").appendChild(badge);
+  }
+  badge.innerText = badgeCount;
+}
+</script>
+</html>
+
+
+
+<div style="margin-top:30px;">
+  <h3>💬 แชทแบบแยกห้อง</h3>
+  <select id="room-select" onchange="switchRoom()">
+    <option value="global">🌐 Global</option>
+    <option value="support">🛟 Support</option>
+    <option value="admin">🛡️ Admin</option>
+  </select>
+  <button onclick="createRoom()">➕ สร้างห้องใหม่</button>
+  <input type="text" id="new-room-name" placeholder="ชื่อห้องใหม่" style="width:150px;">
+
+  <div id="chat-box" style="background:#fff;height:200px;overflow-y:auto;padding:10px;border-radius:10px;border:1px solid #ccc;margin-bottom:10px;"></div>
+  <input type="text" id="chat-input" placeholder="พิมพ์ข้อความ..." style="width:80%;">
+  <button onclick="sendMessage()">ส่ง</button>
+</div>
+
+<div style="margin-top:30px;">
+  <h3>🔔 แจ้งเตือนของคุณ</h3>
+  <ul id="notification-list" style="background:#fff;padding:10px;border-radius:10px;border:1px solid #ccc;"></ul>
+</div>
+
+</body>
+
+</html>

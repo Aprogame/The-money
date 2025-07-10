@@ -1,0 +1,93 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>โปรไฟล์ส่วนตัว</title>
+  <style>
+    body {
+      font-family: 'Kanit', sans-serif;
+      background: linear-gradient(#e0f7fa, #b2ebf2);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+      text-align: center;
+      max-width: 400px;
+    }
+    img {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-bottom: 15px;
+    }
+    h2 { color: #00796b; }
+    p { margin: 5px 0; }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: #009688;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #00796b;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img id="avatar" src="" alt="avatar">
+    <h2 id="name">กำลังโหลด...</h2>
+    <p id="email"></p>
+    <p><strong>UID:</strong> <span id="uid"></span></p>
+    <button onclick="logout()">ออกจากระบบ</button>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDPOJVghUoEjPvwnik6KwjO47kAzrasRnc",
+      authDomain: "money542.firebaseapp.com",
+      projectId: "money542",
+      storageBucket: "money542.firebasestorage.app",
+      messagingSenderId: "503884657875",
+      appId: "1:503884657875:web:afc355b0a49d4b3b4f1026",
+      measurementId: "G-C32EKBEGGL"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        document.getElementById("avatar").src = user.photoURL || "https://via.placeholder.com/120";
+        document.getElementById("name").innerText = user.displayName || "ไม่ระบุชื่อ";
+        document.getElementById("email").innerText = user.email;
+        document.getElementById("uid").innerText = user.uid;
+      } else {
+        window.location.href = "index.html";
+      }
+    });
+
+    function logout() {
+      auth.signOut().then(() => {
+        window.location.href = "index.html";
+      });
+    }
+  </script>
+</body>
+</html>

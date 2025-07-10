@@ -1,0 +1,161 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>เข้าสู่ระบบ / สมัครสมาชิก</title>
+  <style>
+    body {
+      font-family: 'Kanit', sans-serif;
+      background: linear-gradient(#bde0fe, #a2d2ff);
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 400px;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #0077b6;
+    }
+    input {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px 5px;
+      border: none;
+      border-radius: 10px;
+      background-color: #00b4d8;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+      width: 100%;
+    }
+    button:hover {
+      background-color: #0096c7;
+    }
+    .section {
+      margin-bottom: 30px;
+    }
+    .small {
+      font-size: 0.9em;
+      color: #333;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="section">
+      <h2>เข้าสู่ระบบ</h2>
+      <input type="email" id="login-email" placeholder="อีเมล">
+      <input type="password" id="login-password" placeholder="รหัสผ่าน">
+      <button onclick="loginUser()">เข้าสู่ระบบ</button>
+      <button onclick="loginWithGoogle()">Google Login</button>
+      <button onclick="loginWithFacebook()">Facebook Login</button>
+      <p class="small" onclick="resetPassword()">ลืมรหัสผ่าน?</p>
+    </div>
+
+    <div class="section">
+      <h2>สมัครสมาชิก</h2>
+      <input type="email" id="reg-email" placeholder="อีเมล">
+      <input type="password" id="reg-password" placeholder="รหัสผ่าน">
+      <button onclick="registerUser()">สมัครสมาชิก</button>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDPOJVghUoEjPvwnik6KwjO47kAzrasRnc",
+      authDomain: "money542.firebaseapp.com",
+      projectId: "money542",
+      storageBucket: "money542.firebasestorage.app",
+      messagingSenderId: "503884657875",
+      appId: "1:503884657875:web:afc355b0a49d4b3b4f1026",
+      measurementId: "G-C32EKBEGGL"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    function registerUser() {
+      const email = document.getElementById("reg-email").value.trim();
+      const password = document.getElementById("reg-password").value.trim();
+      auth.createUserWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+          userCredential.user.sendEmailVerification();
+          alert("สมัครสำเร็จ! กรุณายืนยันอีเมลก่อนใช้งาน");
+        })
+        .catch(error => {
+          alert(error.message);
+        });
+    }
+
+    function loginUser() {
+      const email = document.getElementById("login-email").value.trim();
+      const password = document.getElementById("login-password").value.trim();
+      auth.signInWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+          if (!userCredential.user.emailVerified) {
+            alert("กรุณายืนยันอีเมลก่อนใช้งาน");
+            auth.signOut();
+          } else {
+            window.location.href = "dashboard.html";
+          }
+        })
+        .catch(error => {
+          alert("เข้าสู่ระบบล้มเหลว: " + error.message);
+        });
+    }
+
+    function loginWithGoogle() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider)
+        .then(() => {
+          window.location.href = "dashboard.html";
+        })
+        .catch(error => {
+          alert("Google Login ผิดพลาด: " + error.message);
+        });
+    }
+
+    function loginWithFacebook() {
+      const provider = new firebase.auth.FacebookAuthProvider();
+      auth.signInWithPopup(provider)
+        .then(() => {
+          window.location.href = "dashboard.html";
+        })
+        .catch(error => {
+          alert("Facebook Login ผิดพลาด: " + error.message);
+        });
+    }
+
+    function resetPassword() {
+      const email = prompt("กรอกอีเมลของคุณ:");
+      if (email) {
+        auth.sendPasswordResetEmail(email)
+          .then(() => {
+            alert("ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลแล้ว");
+          })
+          .catch(error => {
+            alert("เกิดข้อผิดพลาด: " + error.message);
+          });
+      }
+    }
+  </script>
+</body>
+</html>
